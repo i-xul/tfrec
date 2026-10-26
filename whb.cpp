@@ -644,7 +644,7 @@ whb_demod::whb_demod(decoder *_dec, double _spb) : demodulator( _dec)
 	reset();
 	iir=new iir2(2.0/spb); // Pulse filter
 	iir_avg=new iir2(0.0025/spb); // Phase discriminator filter
-	printf("WHB: Samples per bit: %.1f\n",spb);
+	fprintf(stderr, "WHB: Samples per bit: %.1f\n", spb);
 	last_dev=0;
 }
 //-------------------------------------------------------------------------

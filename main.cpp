@@ -215,7 +215,8 @@ int main(int argc, char **argv)
 	}
 	*/
 	if (types&(1<<TFA_WHB)) {
-	printf("Registering demod for TFA_WHB sensors, 6000 bit/s\n");
+	if (!json_output)
+			printf("Registering demod for TFA_WHB sensors, 6000 bit/s\n");
 
 	whb_decoder *whb_dec = new whb_decoder(TFA_WHB);
 	whb_dec->set_params(exec, mode, debug);
