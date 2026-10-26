@@ -12,9 +12,12 @@ class whb_decoder: public decoder
 {
  public:
 	whb_decoder(sensor_e type=TFA_WHB);
+	void set_json_output(bool enabled);
 	void store_bit(int bit);
 	void flush(int rssi,int offset=0);
  private:
+	bool json_output = false;
+
 	double cvt_temp(uint16_t raw, int extended=0);
 	void decode_02(uint8_t *msg, uint64_t id, int rssi, int offset); // temp
 	void decode_03(uint8_t *msg, uint64_t id, int rssi, int offset); // temp/hum

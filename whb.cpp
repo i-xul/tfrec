@@ -106,6 +106,11 @@ whb_decoder::whb_decoder(sensor_e _type) : decoder(_type)
 	psk=last_psk=0;
 	nrzs=0;
 }
+
+void whb_decoder::set_json_output(bool enabled)
+{
+    json_output = enabled;
+}
 //-------------------------------------------------------------------------
 double whb_decoder::cvt_temp(uint16_t raw, int extended)
 {
@@ -478,16 +483,27 @@ void whb_decoder::decode_12(uint8_t *msg, uint64_t id, int rssi, int offset)
 // COSY BARO (TFA 35.1154.01), WeatherHub sensor type 0x18
 void whb_decoder::decode_18(uint8_t *msg, uint64_t id, int rssi, int offset)
 {
-        double temp = BE16(msg+3) / 10.0;
-        int humidity = msg[5];
-        double pressure = BE16(msg+6) / 10.0;
+    double temp = BE16(msg+3) / 10.0;
+    int humidity = msg[5];
+    double pressure = BE16(msg+6) / 10.0;
 
-        if (dbg>=0) {
-                printf("WHB18 ID %" PRIx64
-                       " TEMP %.1f HUM %d PRESSURE %.1f hPa\n",
-                       id, temp, humidity, pressure);
-                fflush(stdout);
-        }
+    if (json_output) {
+        printf("{\"sensor\":\"TFA COSY BARO\","
+               "\"id\":\"%" PRIx64 "\","
+               "\"temperature_c\":%.1f,"
+               "\"humidity_percent\":%d,"
+               "\"pressure_hpa\":%.1f}\n",
+               id, temp, humidity, pressure);
+
+        fflush(stdout);
+    }
+    else if (dbg>=0) {
+        printf("WHB18 ID %" PRIx64
+               " TEMP %.1f HUM %d PRESSURE %.1f hPa\n",
+               id, temp, humidity, pressure);
+
+        fflush(stdout);
+    }
 }
 //-------------------------------------------------------------------------
 void whb_decoder::flush(int rssi, int offset)

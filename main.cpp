@@ -90,6 +90,7 @@ void usage(void)
 //-------------------------------------------------------------------------
 int main(int argc, char **argv)
 {
+	bool json_output = false;
 	int gain=-1;
 	int freq=868250;
 	int thresh=0; // Auto
@@ -106,7 +107,7 @@ int main(int argc, char **argv)
 	
 	while(1) {
 		signed char c=getopt(argc,argv,
-			      "d:Df:g:e:t:m:w:WqT:S:L:X:h");
+			      "d:Df:g:e:t:m:w:WqJT:S:L:X:h");
 		if (c==-1)
 			break;
 		switch (c) {
@@ -119,6 +120,9 @@ int main(int argc, char **argv)
 		case 'D':
 			debug++;
 			break;
+		case 'J':
+		json_output = true;
+		break;
 		case 'f':
 			freq=atoi(optarg);
 			break;
@@ -211,10 +215,13 @@ int main(int argc, char **argv)
 	}
 	*/
 	if (types&(1<<TFA_WHB)) {
-		printf("Registering demod for TFA_WHB sensors, 6000 bit/s\n");
-		decoder *whb_dec=new whb_decoder(TFA_WHB);
-		whb_dec->set_params(exec, mode, debug);
-		demods.push_back(new whb_demod( whb_dec, (1536000/4.0)/6000));
+	printf("Registering demod for TFA_WHB sensors, 6000 bit/s\n");
+
+	whb_decoder *whb_dec = new whb_decoder(TFA_WHB);
+	whb_dec->set_params(exec, mode, debug);
+	whb_dec->set_json_output(json_output);
+
+	demods.push_back(new whb_demod(whb_dec, (1536000/4.0)/6000));
 	}
 	
 	if (hexdump_file) {
