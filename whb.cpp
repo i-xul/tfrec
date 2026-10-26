@@ -577,8 +577,23 @@ void whb_decoder::flush(int rssi, int offset)
 			decode_12(msg, id, rssi, offset);
 			break;
 		case 0x18:
-        		decode_18(msg, id, rssi, offset);
-        		break;
+		{
+		const time_t now = time(nullptr);
+		const uint32_t fingerprint = crc_val;
+		const auto it = cosy_baro_last.find(id);
+
+		// Ignore repeated identical frames within 5 seconds.
+		if (it != cosy_baro_last.end() &&
+		it->second.crc == fingerprint &&
+		now >= it->second.timestamp &&
+		now - it->second.timestamp < 5) {
+		break;
+		}
+
+		cosy_baro_last[id] = {fingerprint, now};
+		decode_18(msg, id, rssi, offset);
+		break;
+		}
 		}
 		goto reset;
 	}

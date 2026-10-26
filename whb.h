@@ -1,6 +1,9 @@
 #ifndef _INCLUDE_TFA5H
 #define _INCLUDE_TFA5H
 
+#include <map>
+#include <cstdint>
+#include <ctime>
 #include <string>
 #include "dsp_stuff.h"
 #include "decoder.h"
@@ -17,6 +20,12 @@ class whb_decoder: public decoder
 	void flush(int rssi,int offset=0);
  private:
 	bool json_output = false;
+    struct cosy_baro_last_message {
+        uint32_t crc;
+        time_t timestamp;
+    };
+
+    std::map<uint64_t, cosy_baro_last_message> cosy_baro_last;
 
 	double cvt_temp(uint16_t raw, int extended=0);
 	void decode_02(uint8_t *msg, uint64_t id, int rssi, int offset); // temp
