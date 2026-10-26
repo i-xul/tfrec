@@ -4,6 +4,7 @@
 #include <sys/time.h>
 #include <string>
 #include <map>
+#include <cstdint>
 
 using std::string;
 using std::map;

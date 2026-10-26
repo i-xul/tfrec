@@ -1,0 +1,8 @@
+# C++ build artifacts
+*.o
+.depend
+/tfrec
+
+# Python temporary files
+__pycache__/
+*.pyc

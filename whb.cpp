@@ -59,6 +59,7 @@ map<uint32_t, uint32_t> crc_initvals = {
 	{ 0x10, 0x62d0afc1}, // Door sensor
 	{ 0x11, 0x8cba0708}, // 4 Thermo-hygro-sensors (TFA 30.3060.01)
 	{ 0x12, 0x5a9e30ae}, // Humidity guard (TFA 30.5043.01)
+	{ 0x18, 0xca0abb08}, // WeatherHub COSY BARO
 };
 
 // Translates time units in seconds multiplier
@@ -474,6 +475,21 @@ void whb_decoder::decode_12(uint8_t *msg, uint64_t id, int rssi, int offset)
 	}        	
 }
 //-------------------------------------------------------------------------
+// COSY BARO (TFA 35.1154.01), WeatherHub sensor type 0x18
+void whb_decoder::decode_18(uint8_t *msg, uint64_t id, int rssi, int offset)
+{
+        double temp = BE16(msg+3) / 10.0;
+        int humidity = msg[5];
+        double pressure = BE16(msg+6) / 10.0;
+
+        if (dbg>=0) {
+                printf("WHB18 ID %" PRIx64
+                       " TEMP %.1f HUM %d PRESSURE %.1f hPa\n",
+                       id, temp, humidity, pressure);
+                fflush(stdout);
+        }
+}
+//-------------------------------------------------------------------------
 void whb_decoder::flush(int rssi, int offset)
 {
 	uint32_t crc_calc=0;
@@ -544,6 +560,9 @@ void whb_decoder::flush(int rssi, int offset)
 		case 0x12:
 			decode_12(msg, id, rssi, offset);
 			break;
+		case 0x18:
+        		decode_18(msg, id, rssi, offset);
+        		break;
 		}
 		goto reset;
 	}

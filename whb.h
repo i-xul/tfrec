@@ -26,7 +26,8 @@ class whb_decoder: public decoder
 	void decode_10(uint8_t *msg, uint64_t id, int rssi, int offset); // door
 	void decode_11(uint8_t *msg, uint64_t id, int rssi, int offset); // 4 Thermo-hygro-sensors (TFA 30.3060.01)
 	void decode_12(uint8_t *msg, uint64_t id, int rssi, int offset); // Humidity guard/cosy radar (TFA 30.5043.01)
-	
+	void decode_18(uint8_t *msg, uint64_t id, int rssi, int offset); // COSY BARO (TFA 35.1154.01)
+
 	uint32_t sr;
         int sr_cnt;
         int snum;
