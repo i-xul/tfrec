@@ -9,7 +9,7 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent
 DATA_PATH = BASE_DIR / "cosy_baro_latest.json"
 
-HOST = "0.0.0.0"
+HOST = "192.168.1.111"
 PORT = 8765
 
 
