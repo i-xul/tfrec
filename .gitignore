@@ -6,3 +6,7 @@
 # Python temporary files
 __pycache__/
 *.pyc
+
+# COSY BARO runtime measurements
+/cosy_baro_latest.json
+/cosy_baro_latest.json.tmp

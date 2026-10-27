@@ -1,6 +1,323 @@
 ## tfrec - A SDR tool for receiving wireless sensor data
 (c) 2017-2022 Georg Acher & Deti Fliegl, {acher|fliegl}(at)baycom.de
 
+## Fork extension: TFA WeatherHub COSY BARO support
+
+This fork extends the original `tfrec` project by Georg Acher and
+Deti Fliegl with experimental support for the TFA Dostmann
+WeatherHub COSY BARO (35.1154.01) wireless sensor.
+
+Original project: https://github.com/baycom/tfrec
+
+The original `tfrec` provides the RTL-SDR reception, FSK
+demodulation, WeatherHub protocol handling, and decoding
+infrastructure. This extension builds on that work rather
+than implementing a new receiver from scratch.
+
+The COSY BARO sensor uses WeatherHub sensor type `0x18`.
+Support was developed by analyzing received radio messages,
+determining the sensor-specific CRC32 initialization value,
+and implementing the decoding of temperature, relative
+humidity, and atmospheric pressure.
+
+The extension also adds:
+
+- JSON output for COSY BARO measurements.
+- Suppression of repeated identical radio frames.
+- A Python collector that maintains the latest measurement.
+- A lightweight HTTP JSON API.
+- Systemd service definitions for unattended operation.
+
+The COSY BARO implementation has been tested with an RTL2832U/R820T
+USB receiver on a Raspberry Pi 4 running Debian Trixie.
+
+### How COSY BARO support was implemented
+
+The TFA COSY BARO (35.1154.01) transmits WeatherHub radio
+messages at approximately 868.250 MHz, using sensor type `0x18`.
+
+Initial attempts with `rtl_433` did not produce decoded
+measurements. The original `tfrec` project already supported
+WeatherHub radio reception, making it a suitable foundation
+for extending sensor compatibility.
+
+The implementation involved:
+
+1. Receiving and examining raw WeatherHub messages with `tfrec`.
+2. Identifying the COSY BARO sensor type (`0x18`).
+3. Determining the sensor-specific CRC32 initialization value
+   (`0xCA0ABB08`) and validating received messages.
+4. Implementing `decode_18()` in `whb.cpp` to extract:
+   - Temperature in degrees Celsius.
+   - Relative humidity in percent.
+   - Atmospheric pressure in hPa.
+5. Adding structured JSON output for external applications.
+6. Filtering repeated identical radio frames within a
+   five-second window.
+
+The sensor has been observed transmitting new measurements
+approximately every six minutes.
+
+This implementation extends the existing WeatherHub decoder
+rather than replacing the original `tfrec` radio reception
+and signal-processing code.
+
+The COSY BARO decoder is experimental and has so far been
+validated with one physical sensor.
+
+### Building and receiving COSY BARO measurements
+
+On Debian-based systems, install the required build dependencies:
+
+```bash
+sudo apt update
+sudo apt install -y build-essential pkg-config librtlsdr-dev
+```
+
+Clone this fork and select the COSY BARO development branch:
+
+```bash
+git clone -b feature/cosy-baro https://github.com/i-xul/tfrec.git
+cd tfrec
+```
+
+Build the receiver:
+
+```bash
+make clean && make
+```
+
+A clean build is recommended when changing the decoder's
+header files or class definitions.
+
+To receive COSY BARO measurements as JSON:
+
+```bash
+./tfrec -T 20 -J -w 0
+```
+
+Options:
+
+- `-T 20`: Enable WeatherHub sensor decoding (hexadecimal bitmask).
+- `-J`: Enable JSON output for supported COSY BARO messages.
+- `-w 0`: Run continuously without a timeout.
+
+Example output:
+
+```json
+{
+  "sensor": "TFA COSY BARO",
+  "id": "183625388a34",
+  "temperature_c": 23.9,
+  "humidity_percent": 53,
+  "pressure_hpa": 1020.6
+}
+```
+
+The sensor normally transmits approximately every six minutes,
+so the receiver may initially produce no measurement output.
+
+The RTL-SDR USB receiver must be accessible to the user
+running `tfrec`. Depending on the system, appropriate udev
+rules or group permissions may be required.
+
+### Python measurement collector and HTTP API
+
+This fork includes a lightweight Python collector and HTTP
+server for making COSY BARO measurements available to other
+devices on the local network.
+
+Both components use the Python standard library and do not
+require additional Python packages.
+
+#### Measurement collector
+
+Start the collector from the repository directory:
+
+```bash
+python3 -u cosy_baro_collector.py
+```
+
+The collector launches `tfrec` with WeatherHub decoding and
+JSON output enabled.
+
+When a valid COSY BARO measurement is received, the collector
+adds a local reception timestamp and atomically updates:
+
+`cosy_baro_latest.json`
+
+Example:
+
+```json
+{
+  "sensor": "TFA COSY BARO",
+  "id": "183625388a34",
+  "temperature_c": 23.9,
+  "humidity_percent": 53,
+  "pressure_hpa": 1020.6,
+  "received_at": "2026-10-27T21:54:00+02:00"
+}
+```
+
+The file contains the latest received measurement, not a
+historical database.
+
+#### HTTP JSON API
+
+The HTTP server reads the latest measurement from the JSON
+file and exposes it through a simple endpoint.
+
+Before starting the server, configure the `HOST` constant in
+`cosy_baro_http.py` to match the Raspberry Pi's LAN IP address.
+
+The current example configuration uses:
+
+- Host: `192.168.1.111`
+- Port: `8765`
+- Endpoint: `/api/cosy-baro`
+
+Start the server:
+
+```bash
+python3 -u cosy_baro_http.py
+```
+
+Read the measurement from another device:
+
+```bash
+curl http://192.168.1.111:8765/api/cosy-baro
+```
+
+A successful request returns HTTP 200 and the latest COSY BARO
+measurement as JSON.
+
+The endpoint returns:
+
+- HTTP 200 when measurement data is available.
+- HTTP 404 for unknown paths.
+- HTTP 503 when no measurement file exists.
+- HTTP 500 when the measurement file cannot be read or parsed.
+
+The response includes `Cache-Control: no-store`.
+
+#### Network security
+
+The HTTP API does not implement authentication or TLS.
+
+It is intended for use on a trusted local network and should
+not be exposed directly to the public Internet.
+
+Binding the server to a LAN IP address limits the listening
+interface but does not replace firewall rules or access
+controls.
+
+### Running COSY BARO services with systemd
+
+Two systemd service files are provided:
+
+- `cosy-baro-collector.service` — receives and saves measurements.
+- `cosy-baro-http.service` — serves the latest measurement over HTTP.
+
+The supplied service files are configured for the following
+installation directory and Linux user:
+
+- Directory: `/home/hmasi/tfrec`
+- User: `hmasi`
+
+**Important:** Change `User`, `WorkingDirectory`, `ExecStart`,
+and `ReadWritePaths` as appropriate for your installation
+before installing the services.
+
+The collector requires access to the RTL-SDR USB receiver.
+Ensure the configured user has the necessary device permissions.
+
+#### Install the services
+
+From the repository directory:
+
+```bash
+sudo install -m 644 cosy-baro-collector.service \
+  /etc/systemd/system/cosy-baro-collector.service
+
+sudo install -m 644 cosy-baro-http.service \
+  /etc/systemd/system/cosy-baro-http.service
+
+sudo systemctl daemon-reload
+```
+
+Check the service definitions:
+
+```bash
+systemd-analyze verify cosy-baro-collector.service
+systemd-analyze verify cosy-baro-http.service
+```
+
+#### Enable and start
+
+```bash
+sudo systemctl enable --now cosy-baro-collector.service
+sudo systemctl enable --now cosy-baro-http.service
+```
+
+Both services will start automatically after a reboot.
+
+#### Check service status
+
+```bash
+systemctl status cosy-baro-collector.service --no-pager
+systemctl status cosy-baro-http.service --no-pager
+```
+
+#### View logs
+
+```bash
+sudo journalctl -u cosy-baro-collector.service -n 30 --no-pager
+sudo journalctl -u cosy-baro-http.service -n 30 --no-pager
+```
+
+A successful collector log entry looks like:
+
+```text
+Saved measurement: 23.9 °C, 53 %, 1020.6 hPa
+```
+
+The sensor normally reports approximately every six minutes.
+Allow sufficient time for the first measurement to arrive.
+
+#### Test the HTTP endpoint
+
+```bash
+curl http://192.168.1.111:8765/api/cosy-baro
+```
+
+Replace the IP address with the address configured in
+`cosy_baro_http.py`.
+
+#### Operational notes
+
+- Only one process should access the RTL-SDR receiver at a time.
+- Do not start another HTTP server on the same IP address and port.
+- The collector stores only the most recent measurement.
+- Both services use `Restart=on-failure`.
+- The HTTP service does not require write access to the
+  measurement directory.
+- The collector requires write access to its measurement file.
+- The collector and HTTP server are separate processes and
+  can be restarted independently.
+
+---
+
+## Original tfrec documentation
+
+The documentation below is retained from the original
+[baycom/tfrec](https://github.com/baycom/tfrec) project
+by Georg Acher and Deti Fliegl.
+
+It describes the original receiver, supported sensors,
+protocol details, and general usage.
+
+---
+
 SEO Keywords: TFA KlimaLogg LaCrosse decoder SDR WeatherHub sensor Linux :)
 
 This tool uses a RTL2832-based SDR stick to decode data sent by the
