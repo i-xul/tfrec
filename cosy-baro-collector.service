@@ -1,0 +1,21 @@
+
+[Unit]
+Description=TFA COSY BARO SDR measurement collector
+After=network.target
+
+[Service]
+Type=simple
+User=hmasi
+WorkingDirectory=/home/hmasi/tfrec
+ExecStart=/usr/bin/python3 -u /home/hmasi/tfrec/cosy_baro_collector.py
+Restart=on-failure
+RestartSec=10
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/hmasi/tfrec
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
